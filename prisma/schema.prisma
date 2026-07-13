@@ -32,26 +32,25 @@ model Permission {
 }
 
 model User {
-  id           String  @id @default(cuid())
-  email        String  @unique
-  passwordHash String
-  name         String
-  isActive     Boolean @default(true)
-  isSuspended  Boolean @default(false)
-  isBanned     Boolean @default(false)
-  roleId       String
-  role         Role    @relation(fields: [roleId], references: [id])
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  isActive      Boolean        @default(true)
+  isSuspended   Boolean        @default(false)
+  isBanned      Boolean        @default(false)
+  roleId        String
+  role          Role           @relation(fields: [roleId], references: [id])
+  loginLogs     LoginLog[]
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+  notifications Notification[]
 
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   teacherProfile     TeacherProfile?
   subscriptions      Subscription[]
   voucherRedemptions VoucherRedemption[]
-  loginLogs          LoginLog[]
-  auditLogs          AuditLog[]
-  refreshTokens      RefreshToken[]
-  notifications      Notification[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model RefreshToken {

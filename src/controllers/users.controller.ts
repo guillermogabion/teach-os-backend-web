@@ -51,7 +51,6 @@ export const getUser = asyncHandler(async (req: Request, res: Response) => {
       role: true,
       teacherProfile: true,
       subscriptions: { include: { plan: true } },
-      payments: true,
       loginLogs: { orderBy: { createdAt: "desc" }, take: 20 },
     },
   });
