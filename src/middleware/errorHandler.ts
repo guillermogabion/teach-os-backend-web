@@ -52,3 +52,4 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   // 3. Send the response to the client
   return res.status(status).json({ error: message });
 }
+
