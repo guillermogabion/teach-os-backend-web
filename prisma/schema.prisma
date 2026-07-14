@@ -260,9 +260,30 @@ model License {
   email       String? // set on activation; null while UNUSED
   status      String           @default("UNUSED") // Using string for simplicity
   maxDevices  Int              @default(1)
+  devices     LicenseDevice[]
   activatedAt DateTime?
   expiresAt   DateTime?
   createdAt   DateTime         @default(now())
+}
+
+// Each device that activates a license is fingerprinted by a
+// client-generated deviceId — a stable UUID the app creates once on
+// first launch and keeps in secure/local storage. This is NOT something
+// the server derives; it's only as trustworthy as the client sending it
+// (see the note in license.service.ts). It's what makes `maxDevices`
+// actually enforceable, and what lets an admin remotely kick one device
+// off a license without touching the others.
+model LicenseDevice {
+  id          String   @id @default(cuid())
+  licenseId   String
+  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  deviceId    String
+  deviceName  String? // optional human-readable label, e.g. "Ian's Pixel 8"
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  revoked     Boolean  @default(false)
+
+  @@unique([licenseId, deviceId])
 }
 
 model Setting {
