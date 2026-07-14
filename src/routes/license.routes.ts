@@ -2,11 +2,13 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { requireAuth } from "@/middleware/auth";
 import { requireRole } from "@/middleware/rbac";
+import { requireCronSecret } from "@/middleware/requireCronSecret";
 import {
     activateLicenseHandler,
     validateLicenseHandler,
     createLicenseHandler,
     listLicensesHandler,
+    expireLicensesHandler,
     revokeLicenseHandler,
     listLicenseDevicesHandler,
     revokeLicenseDeviceHandler,
@@ -35,6 +37,14 @@ const validateLimiter = rateLimit({
 // no admin session exists on a phone activating a fresh install.
 router.post("/activate", activateLimiter, activateLicenseHandler);
 router.post("/validate", validateLimiter, validateLicenseHandler);
+
+// Public to anyone holding the shared secret — meant to be called by an
+// external scheduler (GitHub Actions cron, cron-job.org, etc.), not a
+// logged-in admin. This is what actually flips lapsed licenses to
+// EXPIRED on a schedule; without something hitting this, expiration only
+// ever gets caught lazily, the next time that specific license happens
+// to be activated or validated. Must stay above router.use(requireAuth).
+router.post("/expire-check", requireCronSecret, expireLicensesHandler);
 
 // Everything below is admin-only license management.
 router.use(requireAuth);
