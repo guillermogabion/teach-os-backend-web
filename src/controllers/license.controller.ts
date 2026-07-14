@@ -23,14 +23,16 @@ function logAction(req: Request, action: string, entityId: string, meta?: unknow
 const activateSchema = z.object({
     licenseKey: z.string().min(1),
     email: z.string().email(),
+    deviceId: z.string().min(1),
+    deviceName: z.string().optional(),
 });
 
 export const activateLicenseHandler = asyncHandler(async (req: Request, res: Response) => {
-    const { licenseKey, email } = activateSchema.parse(req.body);
+    const { licenseKey, email, deviceId, deviceName } = activateSchema.parse(req.body);
 
-    const license = await licenseService.activateLicense({ licenseKey, email });
+    const license = await licenseService.activateLicense({ licenseKey, email, deviceId, deviceName });
 
-    await logAction(req, "LICENSE_ACTIVATED", license.id, { email });
+    await logAction(req, "LICENSE_ACTIVATED", license.id, { email, deviceId, deviceName });
 
     res.json({
         status: license.status,
@@ -42,14 +44,19 @@ export const activateLicenseHandler = asyncHandler(async (req: Request, res: Res
     });
 });
 
-export const validateLicenseHandler = asyncHandler(async (req: Request, res: Response) => {
-    // We can reuse the activateSchema since we need the exact same two fields
-    const { licenseKey, email } = activateSchema.parse(req.body);
+const validateSchema = z.object({
+    licenseKey: z.string().min(1),
+    email: z.string().email(),
+    deviceId: z.string().min(1),
+});
 
-    const validLicenseInfo = await licenseService.validateLicenseStatus({ licenseKey, email });
+export const validateLicenseHandler = asyncHandler(async (req: Request, res: Response) => {
+    const { licenseKey, email, deviceId } = validateSchema.parse(req.body);
+
+    const validLicenseInfo = await licenseService.validateLicenseStatus({ licenseKey, email, deviceId });
 
     // Optional: You can log this action, or omit it if it creates too much noise on app startup
-    // await logAction(req, "LICENSE_CHECKED", licenseKey, { email });
+    // await logAction(req, "LICENSE_CHECKED", licenseKey, { email, deviceId });
 
     res.json(validLicenseInfo);
 });
@@ -79,9 +86,28 @@ export const listLicensesHandler = asyncHandler(async (req: Request, res: Respon
     res.json(await licenseService.listLicenses({ page, pageSize }));
 });
 
+// Manually sweeps for licenses whose expiresAt has passed and flips them
+// to EXPIRED. Also runs on a schedule (see wherever checkAndExpireLicenses
+// is called on an interval/cron) — this route is mainly for testing that
+// sweep on demand, or forcing it right before you need fresh statuses.
+export const expireLicensesHandler = asyncHandler(async (req: Request, res: Response) => {
+    const result = await licenseService.checkAndExpireLicenses();
+    await logAction(req, "LICENSES_EXPIRE_CHECK", "bulk", { expiredCount: result.count });
+    res.json(result);
+});
+
 export const revokeLicenseHandler = asyncHandler(async (req: Request, res: Response) => {
     const license = await licenseService.revokeLicense(req.params.id);
     await logAction(req, "LICENSE_REVOKED", license.id);
     res.json(license);
 });
 
+export const listLicenseDevicesHandler = asyncHandler(async (req: Request, res: Response) => {
+    res.json(await licenseService.listLicenseDevices(req.params.id));
+});
+
+export const revokeLicenseDeviceHandler = asyncHandler(async (req: Request, res: Response) => {
+    const device = await licenseService.revokeLicenseDevice(req.params.id, req.params.deviceId);
+    await logAction(req, "LICENSE_DEVICE_REVOKED", req.params.id, { deviceRowId: req.params.deviceId });
+    res.json(device);
+});

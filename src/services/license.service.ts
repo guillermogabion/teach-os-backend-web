@@ -4,6 +4,10 @@ import crypto from "crypto";
 import { prisma } from "@/config/prisma";
 import { ApiError } from "@/middleware/errorHandler";
 
+// Prisma client may not have strongly-typed property for the LicenseDevice
+// model in some build setups; use an any-typed alias for device ops.
+const p = prisma as any;
+
 function generateLicenseKey(): string {
     const groups = Array.from({ length: 3 }, () =>
         crypto.randomBytes(2).toString("hex").toUpperCase()
@@ -13,6 +17,55 @@ function generateLicenseKey(): string {
 
 function normalizeEmail(email?: string | null): string | null {
     return email ? email.trim().toLowerCase() : null;
+}
+
+/**
+ * Registers (or checks back in) a device against a license, enforcing
+ * maxDevices. deviceId is a stable UUID the client app generates once
+ * on first launch and keeps in secure/local storage — it is NOT derived
+ * or verified server-side, so it's only as trustworthy as the app
+ * sending it. A tampered/rebuilt client could send a fake or randomized
+ * deviceId to slip past this. What this DOES reliably stop: casual
+ * key-sharing (the common case) and gives admins a real, named device
+ * to revoke — it is not a substitute for real attestation (see note
+ * at the bottom of this file for what that would take).
+ */
+async function registerDevice(
+    licenseId: string,
+    maxDevices: number,
+    deviceId: string,
+    deviceName?: string | null
+) {
+    const existing = await p.licenseDevice.findUnique({
+        where: { licenseId_deviceId: { licenseId, deviceId } },
+    });
+
+    if (existing) {
+        if (existing.revoked) {
+            throw new ApiError(
+                403,
+                "This device has been revoked for this license. Contact support to restore access."
+            );
+        }
+        return p.licenseDevice.update({
+            where: { id: existing.id },
+            data: { lastSeenAt: new Date(), ...(deviceName ? { deviceName } : {}) },
+        });
+    }
+
+    const activeDeviceCount = await p.licenseDevice.count({
+        where: { licenseId, revoked: false },
+    });
+    if (activeDeviceCount >= maxDevices) {
+        throw new ApiError(
+            403,
+            `This license is already active on its maximum number of devices (${maxDevices}). Remove/revoke a device first, or contact support.`
+        );
+    }
+
+    return p.licenseDevice.create({
+        data: { licenseId, deviceId, deviceName: deviceName ?? undefined },
+    });
 }
 
 /**
@@ -80,9 +133,16 @@ export async function createLicense({ planId, maxDevices, expiresInDays, email }
 interface ActivateLicenseParams {
     licenseKey: string;
     email: string;
+    deviceId: string;
+    deviceName?: string;
 }
 
-export async function activateLicense({ licenseKey, email }: ActivateLicenseParams) {
+export async function activateLicense({
+    licenseKey,
+    email,
+    deviceId,
+    deviceName,
+}: ActivateLicenseParams) {
     const normalizedEmail = normalizeEmail(email)!;
 
     const license = await prisma.license.findUnique({
@@ -107,10 +167,20 @@ export async function activateLicense({ licenseKey, email }: ActivateLicensePara
     }
 
     if (license.status === "ACTIVATED") {
-        throw new ApiError(
-            409,
-            "This license key has already been activated and cannot be used again."
-        );
+        if (license.email !== normalizedEmail) {
+            throw new ApiError(409, "This license key is already activated to a different account");
+        }
+        // Same email calling again: this is how a second/third device (up
+        // to maxDevices) gets added — a new phone or tablet, not a brand
+        // new activation. Rejected inside registerDevice if already at
+        // the device limit.
+        await registerDevice(license.id, license.maxDevices, deviceId, deviceName);
+        const refreshed = await prisma.license.findUnique({
+            where: { id: license.id },
+            include: { plan: true, devices: true },
+        });
+        if (!refreshed) throw new ApiError(404, "License not found");
+        return refreshed;
     }
 
     if (license.email && license.email !== normalizedEmail) {
@@ -127,6 +197,8 @@ export async function activateLicense({ licenseKey, email }: ActivateLicensePara
         );
     }
 
+    await registerDevice(license.id, license.maxDevices, deviceId, deviceName);
+
     return prisma.license.update({
         where: { id: license.id },
         data: {
@@ -134,7 +206,7 @@ export async function activateLicense({ licenseKey, email }: ActivateLicensePara
             status: "ACTIVATED",
             activatedAt: new Date(),
         },
-        include: { plan: true },
+        include: { plan: true, devices: true },
     });
 }
 
@@ -148,6 +220,34 @@ export async function revokeLicense(id: string) {
     });
 }
 
+export async function listLicenseDevices(licenseId: string) {
+    const license = await prisma.license.findUnique({ where: { id: licenseId } });
+    if (!license) throw new ApiError(404, "License not found");
+
+    return p.licenseDevice.findMany({
+        where: { licenseId },
+        orderBy: { lastSeenAt: "desc" },
+    });
+}
+
+/**
+ * Remote-revokes one specific device from a license without touching
+ * the others or the license itself — e.g. a lost/stolen phone. The
+ * device's row stays (for audit history) but `revoked: true` blocks it
+ * from passing validateLicenseStatus and frees up its device slot.
+ */
+export async function revokeLicenseDevice(licenseId: string, deviceRowId: string) {
+    const device = await p.licenseDevice.findUnique({ where: { id: deviceRowId } });
+    if (!device || device.licenseId !== licenseId) {
+        throw new ApiError(404, "Device not found for this license");
+    }
+
+    return p.licenseDevice.update({
+        where: { id: deviceRowId },
+        data: { revoked: true },
+    });
+}
+
 interface ListLicensesParams {
     page: number;
     pageSize: number;
@@ -156,7 +256,7 @@ interface ListLicensesParams {
 export async function listLicenses({ page, pageSize }: ListLicensesParams) {
     const [items, total] = await Promise.all([
         prisma.license.findMany({
-            include: { plan: true },
+            include: { plan: true, devices: true },
             orderBy: { createdAt: "desc" },
             skip: (page - 1) * pageSize,
             take: pageSize,
@@ -166,16 +266,48 @@ export async function listLicenses({ page, pageSize }: ListLicensesParams) {
     return { items, total, page, pageSize };
 }
 
+/**
+ * Bulk-marks any license whose expiresAt has passed as EXPIRED, even if
+ * nobody has activated or validated that specific license since it
+ * lapsed. Without this, a license just sitting untouched past its
+ * expiry keeps reporting ACTIVATED/UNUSED everywhere except the two
+ * one-off checks inside activateLicense/validateLicenseStatus, which
+ * only ever catch it the next time THAT license happens to be used.
+ *
+ * Only touches ACTIVATED/UNUSED rows with a real (non-null) expiresAt
+ * in the past. Lifetime licenses (expiresAt: null, e.g. ONE_TIME plans)
+ * and rows already REVOKED/EXPIRED are left untouched.
+ *
+ * Meant to be called on a schedule (see the cron/interval note where
+ * this is wired up) and/or manually via the admin expire-check route.
+ */
+export async function checkAndExpireLicenses() {
+    return prisma.license.updateMany({
+        where: {
+            status: { in: ["ACTIVATED", "UNUSED"] },
+            expiresAt: { lt: new Date() },
+        },
+        data: { status: "EXPIRED" },
+    });
+}
+
 interface ValidateLicenseParams {
     licenseKey: string;
     email: string;
+    deviceId: string;
 }
 
 /**
- * Checks if a previously activated license key is still valid and not expired.
- * This is meant to be called by the client app on startup.
+ * Checks if a previously activated license key is still valid and not
+ * expired. Meant to be called by the client app on startup.
+ *
+ * deviceId is required and checked against registered devices for this
+ * license — a valid key + email is no longer enough on its own. If this
+ * exact device was never activated (or was later revoked by an admin),
+ * validation fails and the app should send the user back through
+ * activation instead of silently trusting a copied key+email pair.
  */
-export async function validateLicenseStatus({ licenseKey, email }: ValidateLicenseParams) {
+export async function validateLicenseStatus({ licenseKey, email, deviceId }: ValidateLicenseParams) {
     const normalizedEmail = normalizeEmail(email)!;
 
     const license = await prisma.license.findUnique({
@@ -208,6 +340,22 @@ export async function validateLicenseStatus({ licenseKey, email }: ValidateLicen
     if (license.status !== "ACTIVATED") {
         throw new ApiError(400, "This license key has not been activated yet");
     }
+
+    const device = await p.licenseDevice.findUnique({
+        where: { licenseId_deviceId: { licenseId: license.id, deviceId } },
+    });
+
+    if (!device || device.revoked) {
+        throw new ApiError(
+            403,
+            "This device is not registered for this license. Please activate the license on this device first."
+        );
+    }
+
+    await p.licenseDevice.update({
+        where: { id: device.id },
+        data: { lastSeenAt: new Date() },
+    });
 
     // If it passes all checks, it is valid and active.
     return {
