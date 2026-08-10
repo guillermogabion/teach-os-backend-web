@@ -1,5 +1,5 @@
 import { prisma } from "../config/prisma";
-import { hashPassword, verifyPassword } from "@/utils/password";
+import { hashPassword, verifyPassword } from "../utils/password";
 import {
   signAccessToken,
   signRefreshToken,

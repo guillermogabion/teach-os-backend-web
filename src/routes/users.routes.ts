@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
 import {
   listUsers,
   getUser,
@@ -9,7 +9,7 @@ import {
   deleteUser,
   listRoles,
   createUser
-} from "@/controllers/users.controller";
+} from "../controllers/users.controller";
 
 const router = Router();
 

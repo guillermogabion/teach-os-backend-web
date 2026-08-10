@@ -7,7 +7,7 @@ import {
   getGroupSettings,
   updateGroupSettings,
   resetGroupSettings,
-} from "@/services/settings.service";
+} from "../services/settings.service";
 
 function requireValidGroup(groupParam: string) {
   if (!isSettingsGroup(groupParam)) {

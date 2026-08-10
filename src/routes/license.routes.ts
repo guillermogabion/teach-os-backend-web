@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
-import { requireCronSecret } from "@/middleware/requireCronSecret";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
+import { requireCronSecret } from "../middleware/requireCronSecret";
 import {
     activateLicenseHandler,
     validateLicenseHandler,
@@ -12,7 +12,7 @@ import {
     revokeLicenseHandler,
     listLicenseDevicesHandler,
     revokeLicenseDeviceHandler,
-} from "@/controllers/license.controller";
+} from "../controllers/license.controller";
 
 const router = Router();
 

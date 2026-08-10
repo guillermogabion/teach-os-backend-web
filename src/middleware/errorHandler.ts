@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { sendBuyerConflictEmail } from "@/services/mailer.service";
+import { sendBuyerConflictEmail } from "../services/mailer.service";
 
 export class ApiError extends Error {
   status: number;

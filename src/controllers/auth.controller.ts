@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { asyncHandler, ApiError } from "../middleware/errorHandler";
-import * as authService from "@/services/auth.service";
+import * as authService from "../services/auth.service";
 
 const loginSchema = z.object({
   email: z.string().email(),

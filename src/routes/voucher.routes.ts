@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
 import {
     createVoucherHandler,
     updateVoucherHandler,
@@ -10,7 +10,7 @@ import {
     listVouchersHandler,
     getVoucherHandler,
     validateVoucherHandler,
-} from "@/controllers/voucher.controller";
+} from "../controllers/voucher.controller";
 
 const router = Router();
 

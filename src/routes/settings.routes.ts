@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
 import {
   getAllSettingsHandler,
   getGroupSettingsHandler,
   updateGroupSettingsHandler,
   resetGroupSettingsHandler,
-} from "@/controllers/settings.controller";
+} from "../controllers/settings.controller";
 
 const router = Router();
 

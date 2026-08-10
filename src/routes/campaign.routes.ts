@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
 import {
     createCampaignHandler,
     updateCampaignHandler,
     listCampaignsHandler,
     getCampaignHandler,
     deleteCampaignHandler,
-} from "@/controllers/campaign.controller";
+} from "../controllers/campaign.controller";
 
 const router = Router();
 

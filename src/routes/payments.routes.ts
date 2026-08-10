@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "@/middleware/auth";
-import { requireRole } from "@/middleware/rbac";
+import { requireAuth } from "../middleware/auth";
+import { requireRole } from "../middleware/rbac";
 import {
     createPaymentHandler,
     listPaymentsHandler,
@@ -8,7 +8,7 @@ import {
     approvePaymentHandler,
     rejectPaymentHandler,
     refundPaymentHandler,
-} from "@/controllers/payments.controller";
+} from "../controllers/payments.controller";
 
 const router = Router();
 

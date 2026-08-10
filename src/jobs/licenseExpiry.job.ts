@@ -1,4 +1,4 @@
-import * as licenseService from "@/services/license.service";
+import * as licenseService from "../services/license.service";
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // hourly — adjust to taste
 

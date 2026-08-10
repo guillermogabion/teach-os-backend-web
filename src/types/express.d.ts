@@ -1,4 +1,4 @@
-import { AccessTokenPayload } from "@/utils/jwt";
+import { AccessTokenPayload } from "../utils/jwt";
 
 declare global {
   namespace Express {
@@ -8,4 +8,4 @@ declare global {
   }
 }
 
-export {};
+export { };
