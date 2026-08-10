@@ -1,8 +1,3 @@
-// TeachOS Admin Panel - Prisma schema
-// Dev: SQLite. Swap provider to "postgresql" + DATABASE_URL for production.
-// Note: SQLite has no native enum support, so "enum-like" fields are plain
-// Strings with the intended values noted in a comment above each one.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,44 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Auth / RBAC ----------
-
-// RoleName: SUPER_ADMIN | ADMIN | SUPPORT
 model Role {
   id          String       @id @default(cuid())
   name        String       @unique
   description String?
-  permissions Permission[]
-  users       User[]
   createdAt   DateTime     @default(now())
+  users       User[]
+  permissions Permission[] @relation("PermissionToRole")
 }
 
 model Permission {
   id    String @id @default(cuid())
-  key   String @unique // e.g. "users.delete", "plans.edit"
+  key   String @unique
   label String
-  roles Role[]
+  roles Role[] @relation("PermissionToRole")
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  isActive      Boolean        @default(true)
-  isSuspended   Boolean        @default(false)
-  isBanned      Boolean        @default(false)
-  roleId        String
-  role          Role           @relation(fields: [roleId], references: [id])
-  loginLogs     LoginLog[]
-  auditLogs     AuditLog[]
-  refreshTokens RefreshToken[]
-  notifications Notification[]
-
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  passwordHash       String
+  name               String
+  isActive           Boolean             @default(true)
+  isSuspended        Boolean             @default(false)
+  isBanned           Boolean             @default(false)
+  roleId             String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  teacherProfile     TeacherProfile?
+  auditLogs          AuditLog[]
+  loginLogs          LoginLog[]
+  notifications      Notification[]
+  refreshTokens      RefreshToken[]
   subscriptions      Subscription[]
+  teacherProfile     TeacherProfile?
+  role               Role                @relation(fields: [roleId], references: [id])
   voucherRedemptions VoucherRedemption[]
 }
 
@@ -57,167 +48,149 @@ model RefreshToken {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userAgent String?
   ip        String?
   expiresAt DateTime
   revoked   Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LoginLog {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ip        String?
   userAgent String?
   success   Boolean
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String // e.g. "PLAN_EDITED", "VOUCHER_CREATED"
-  entity    String? // e.g. "SubscriptionPlan"
+  action    String
+  entity    String?
   entityId  String?
   ip        String?
   userAgent String?
-  meta      String? // JSON string of extra context
+  meta      String?
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 }
-
-// ---------- Teacher / TeacherOS domain ----------
 
 model TeacherProfile {
   id            String   @id @default(cuid())
   userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   school        String?
   department    String?
-  subjects      String? // comma-separated or JSON
+  subjects      String?
   quizCount     Int      @default(0)
   lessonCount   Int      @default(0)
   storageUsedMb Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ---------- Subscriptions & Plans ----------
-
-// billingCycle: MONTHLY | YEARLY | ONE_TIME
 model SubscriptionPlan {
   id                 String              @id @default(cuid())
   name               String
   description        String?
   price              Float               @default(0)
-  billingCycle       String              @default("MONTHLY") // For simplicity, using string instead of enum
+  billingCycle       String              @default("MONTHLY")
   maxStorageMb       Int                 @default(0)
   maxQuizzes         Int                 @default(0)
   maxLessonPlans     Int                 @default(0)
   isActive           Boolean             @default(true)
   isArchived         Boolean             @default(false)
-  featurePermissions FeaturePermission[]
-  subscriptions      Subscription[]
-  payments           Payment[]
-  vouchers           VoucherCode[]       @relation("VoucherPlans")
-  licenses           License[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  featurePermissions FeaturePermission[]
+  licenses           License[]
+  payments           Payment[]
+  subscriptions      Subscription[]
+  vouchers           VoucherCode[]       @relation("VoucherPlans")
 }
 
 model FeaturePermission {
   id         String           @id @default(cuid())
   planId     String
-  plan       SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  featureKey String // e.g. "ocr", "ai_lesson_planner", "pdf_export"
+  featureKey String
   enabled    Boolean          @default(false)
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@unique([planId, featureKey])
 }
 
-// status: TRIAL | ACTIVE | EXPIRED | CANCELLED | PENDING | GRACE_PERIOD | SUSPENDED
 model Subscription {
   id        String           @id @default(cuid())
   userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId    String
-  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
-  status    String // Using string for simplicity
+  status    String
   startedAt DateTime         @default(now())
   expiresAt DateTime?
-  payments  Payment[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+  payments  Payment[]
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ---------- Payments ----------
-
-// provider: GCASH | PAYMONGO | STRIPE | MAYA
-// status: PENDING | PAID | EXPIRED | FAILED | REFUNDED
 model Payment {
   id               String            @id @default(cuid())
-  buyerEmail       String? // for anonymous/reseller purchases with no User account
+  buyerEmail       String?
   buyerName        String?
   planId           String?
-  plan             SubscriptionPlan? @relation(fields: [planId], references: [id])
   subscriptionId   String?
-  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id])
   amount           Float
-  originalAmount   Float? // pre-discount amount; only set when a voucher was applied
+  originalAmount   Float?
   discountApplied  Float             @default(0)
-  bonusDaysApplied Int               @default(0) // extra license days granted by a voucher, if any
+  bonusDaysApplied Int               @default(0)
   voucherId        String?
-  voucher          VoucherCode?      @relation(fields: [voucherId], references: [id])
   currency         String            @default("PHP")
-  provider         String // Using string for simplicity
-  status           String // Using string for simplicity
+  provider         String
+  status           String
   receiptUrl       String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  plan             SubscriptionPlan? @relation(fields: [planId], references: [id])
+  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id])
+  voucher          VoucherCode?      @relation(fields: [voucherId], references: [id])
 }
 
-// ---------- Vouchers & Promos ----------
-
-// discountType: PERCENTAGE | FIXED | FREE_TRIAL | FREE_MONTH | FREE_YEAR
 model VoucherCode {
   id             String              @id @default(cuid())
   code           String              @unique
   name           String
   description    String?
   discountType   String              @default("PERCENTAGE")
-  discountAmount Float               @default(0) // % (0–100) if PERCENTAGE, currency amount if FIXED
-  bonusDays      Int                 @default(0) // extra license days on top of the plan's normal duration
-  maxUsage       Int                 @default(0) // 0 = unlimited
+  discountAmount Float               @default(0)
+  bonusDays      Int                 @default(0)
+  maxUsage       Int                 @default(0)
   currentUsage   Int                 @default(0)
   expiresAt      DateTime?
   isActive       Boolean             @default(true)
   firstTimeOnly  Boolean             @default(false)
   premiumOnly    Boolean             @default(false)
-  eligiblePlans  SubscriptionPlan[]  @relation("VoucherPlans")
-  redemptions    VoucherRedemption[]
-  payments       Payment[]
   campaignId     String?
-  campaign       PromoCampaign?      @relation(fields: [campaignId], references: [id])
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+  payments       Payment[]
+  campaign       PromoCampaign?      @relation(fields: [campaignId], references: [id])
+  redemptions    VoucherRedemption[]
+  eligiblePlans  SubscriptionPlan[]  @relation("VoucherPlans")
 }
 
-// Redemptions are tracked by normalized email, not userId — buyers in
-// this flow are anonymous until they activate their License in the app
-// (see Payment/License comments elsewhere), so there's usually no User
-// row yet to point at. userId is kept around, nullable, for if a real
-// account ever does get linked at redemption time.
 model VoucherRedemption {
   id         String      @id @default(cuid())
   voucherId  String
-  voucher    VoucherCode @relation(fields: [voucherId], references: [id], onDelete: Cascade)
   email      String
   userId     String?
-  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   paymentId  String?
   redeemedAt DateTime    @default(now())
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucher    VoucherCode @relation(fields: [voucherId], references: [id], onDelete: Cascade)
 
   @@unique([voucherId, email])
 }
@@ -229,59 +202,43 @@ model PromoCampaign {
   endDate   DateTime
   bannerUrl String?
   isActive  Boolean       @default(true)
-  vouchers  VoucherCode[]
   createdAt DateTime      @default(now())
+  vouchers  VoucherCode[]
 }
-
-// ---------- Notifications & Settings ----------
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  type      String // e.g. "PAYMENT_NEW", "SUBSCRIPTION_EXPIRING"
+  type      String
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 }
 
-// ---------- Licenses (mobile app manual/offline activation) ----------
-// A License is generated by an admin ahead of time (e.g. printed on a
-// receipt, sold via a reseller) and later "claimed" by whoever enters
-// the key + their email in the TeacherOS app. That claim is the
-// "activation" — it's what ties an otherwise-anonymous key to an account.
-
-// status: UNUSED | ACTIVATED | REVOKED | EXPIRED
 model License {
   id          String           @id @default(cuid())
   key         String           @unique
   planId      String
-  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
-  email       String? // set on activation; null while UNUSED
-  status      String           @default("UNUSED") // Using string for simplicity
+  email       String?
+  status      String           @default("UNUSED")
   maxDevices  Int              @default(1)
-  devices     LicenseDevice[]
   activatedAt DateTime?
   expiresAt   DateTime?
   createdAt   DateTime         @default(now())
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  devices     LicenseDevice[]
 }
 
-// Each device that activates a license is fingerprinted by a
-// client-generated deviceId — a stable UUID the app creates once on
-// first launch and keeps in secure/local storage. This is NOT something
-// the server derives; it's only as trustworthy as the client sending it
-// (see the note in license.service.ts). It's what makes `maxDevices`
-// actually enforceable, and what lets an admin remotely kick one device
-// off a license without touching the others.
 model LicenseDevice {
   id          String   @id @default(cuid())
   licenseId   String
-  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
   deviceId    String
-  deviceName  String? // optional human-readable label, e.g. "Ian's Pixel 8"
+  deviceName  String?
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
   revoked     Boolean  @default(false)
+  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@unique([licenseId, deviceId])
 }

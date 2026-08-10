@@ -6,7 +6,7 @@ import { env } from "./config/env";
 import routes from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
 
-export function createApp() {
+export default function createApp() {
   const app = express();
   app.set("trust proxy", 1);
   app.use(helmet());
