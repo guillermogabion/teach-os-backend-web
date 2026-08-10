@@ -418,8 +418,32 @@ export function signLicenseToken(
     const payloadBytes = Buffer.from(JSON.stringify(payload), "utf8");
     const signatureBytes = crypto.sign(null, payloadBytes, privateKeyObject);
 
+
+    console.log("[licenseToken] Token generated");
+    console.log("[licenseToken] deviceId:", params.deviceId);
+    console.log("[licenseToken] email:", params.email);
+    console.log("[licenseToken] status:", params.status);
+    console.log("[licenseToken] hasPrivateKey:", !!privateKeyObject);
+    console.log("[licenseToken] signatureLength:", signatureBytes.length);
+
     return {
         payload: payloadBytes.toString("base64url"),
         signature: signatureBytes.toString("base64url"),
     };
+}
+
+if (privateKeyObject) {
+    const publicKey = crypto.createPublicKey(privateKeyObject);
+
+    const publicDer = publicKey.export({
+        type: "spki",
+        format: "der",
+    });
+
+    const publicRaw = publicDer.subarray(-32);
+
+    console.log(
+        "[licenseToken] BACKEND PUBLIC KEY:",
+        publicRaw.toString("base64")
+    );
 }
