@@ -1,19 +1,22 @@
 import nodemailer from "nodemailer";
+import * as SMTPTransport from "nodemailer/lib/smtp-transport";
 
-const transporter = nodemailer.createTransport({
+const smtpOptions: SMTPTransport.Options = {
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
-    port: Number(process.env.SMTP_PORT || 587),
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
     secure: false,
-    family: 4,
 
-    auth: process.env.SMTP_USER
+    ...(process.env.SMTP_USER
         ? {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS || "",
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS || "",
+            },
         }
-        : undefined,
-});
+        : {}),
+};
 
+const transporter = nodemailer.createTransport(smtpOptions);
 const FROM = process.env.SMTP_FROM || "no-reply@TeachOs.app";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
