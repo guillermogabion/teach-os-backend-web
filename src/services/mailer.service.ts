@@ -1,24 +1,18 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = Number(process.env.SMTP_PORT || "465");
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
 
-if (!RESEND_API_KEY) {
+if (!SMTP_USER || !SMTP_PASS) {
     console.warn(
-        "⚠️ RESEND_API_KEY is not configured — emails will fail to send"
+        "⚠️ Gmail SMTP credentials are not configured — emails will fail to send"
     );
 }
 
-const resend = new Resend(RESEND_API_KEY || "");
-
-// Resend's testing sender.
-// Later, once teachos.app is verified, change this to:
-// no-reply@teachos.app
-const FROM_EMAIL =
-    process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-
-const FROM_NAME =
-    process.env.RESEND_FROM_NAME || "TeachOS";
-
+const FROM_EMAIL = process.env.SMTP_FROM || SMTP_USER || "";
+const FROM_NAME = process.env.SMTP_FROM_NAME || "TeachOS";
 const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 
 const CLIENT_URL =
@@ -29,6 +23,15 @@ const ADMIN_EMAILS = (process.env.ADMIN_NOTIFICATION_EMAIL || "")
     .map((e) => e.trim())
     .filter(Boolean);
 
+const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+    },
+});
 
 // ─────────────────────────────────────────────
 // Base email template
@@ -164,46 +167,27 @@ export const sendMail = async ({
     subject,
     html,
 }: MailOptions) => {
-
     try {
-
-        const { data, error } = await resend.emails.send({
+        const info = await transporter.sendMail({
             from: FROM,
-            to: [to],
+            to,
             subject,
             html: baseTemplate(html),
         });
 
-        if (error) {
-
-            console.error(
-                "❌ Resend email error:",
-                error.message
-            );
-
-            return {
-                success: false,
-                error: error.message,
-            };
-        }
-
         console.log(
             `📧 Email sent to ${to}: ${subject}`,
-            data?.id
+            info.messageId
         );
 
         return {
             success: true,
-            messageId: data?.id,
+            messageId: info.messageId,
         };
-
     } catch (err) {
-
         console.error(
-            "❌ Resend email error:",
-            err instanceof Error
-                ? err.message
-                : err
+            "❌ Gmail SMTP email error:",
+            err instanceof Error ? err.message : err
         );
 
         return {
