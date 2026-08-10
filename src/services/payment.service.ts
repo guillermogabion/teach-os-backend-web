@@ -1,9 +1,9 @@
-import { prisma } from "@/config/prisma";
-import { ApiError } from "@/middleware/errorHandler";
-import { getGroupSettings } from "@/services/settings.service";
-import * as licenseService from "@/services/license.service";
-import * as voucherService from "@/services/voucher.service";
-import { sendActivationKeyEmail, sendAdminPendingPaymentEmail } from "@/services/mailer.service";
+import { prisma } from "../config/prisma";
+import { ApiError } from "../middleware/errorHandler";
+import { getGroupSettings } from "../services/settings.service";
+import * as licenseService from "../services/license.service";
+import * as voucherService from "../services/voucher.service";
+import { sendActivationKeyEmail, sendAdminPendingPaymentEmail } from "../services/mailer.service";
 
 interface CreatePaymentParams {
     planId: string;

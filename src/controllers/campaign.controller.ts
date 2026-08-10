@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "@/config/prisma";
-import { asyncHandler } from "@/middleware/errorHandler";
+import { asyncHandler } from "../middleware/errorHandler";
 import * as campaignService from "@/services/campaign.service";
 
 function logAction(req: Request, action: string, entityId: string, meta?: unknown) {

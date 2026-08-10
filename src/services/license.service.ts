@@ -1,8 +1,8 @@
 // license.service.ts — only the changed function + its callers' messages
 
 import crypto from "crypto";
-import { prisma } from "@/config/prisma";
-import { ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { ApiError } from "../middleware/errorHandler";
 
 // Prisma client may not have strongly-typed property for the LicenseDevice
 // model in some build setups; use an any-typed alias for device ops.

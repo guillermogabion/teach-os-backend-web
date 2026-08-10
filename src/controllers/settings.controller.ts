@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { prisma } from "@/config/prisma";
-import { asyncHandler, ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { asyncHandler, ApiError } from "../middleware/errorHandler";
 import {
   isSettingsGroup,
   getAllSettings,

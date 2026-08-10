@@ -1,12 +1,12 @@
-import { prisma } from "@/config/prisma";
+import { prisma } from "../config/prisma";
 import { hashPassword, verifyPassword } from "@/utils/password";
 import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
-} from "@/utils/jwt";
-import { ApiError } from "@/middleware/errorHandler";
-import { env } from "@/config/env";
+} from "../utils/jwt";
+import { ApiError } from "../middleware/errorHandler";
+import { env } from "../config/env";
 
 interface LoginParams {
   email: string;

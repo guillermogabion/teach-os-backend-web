@@ -1,5 +1,5 @@
-import { prisma } from "@/config/prisma";
-import { ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { ApiError } from "../middleware/errorHandler";
 
 interface CampaignInput {
     name: string;

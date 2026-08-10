@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { prisma } from "@/config/prisma";
-import { asyncHandler, ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { asyncHandler, ApiError } from "../middleware/errorHandler";
 import bcrypt from "bcryptjs";
 
 

@@ -1,5 +1,5 @@
-import { prisma } from "@/config/prisma";
-import { ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { ApiError } from "../middleware/errorHandler";
 
 // Voucher codes are matched case-insensitively but SQLite can't do that
 // reliably in a `where` filter (same issue as normalizeEmail in

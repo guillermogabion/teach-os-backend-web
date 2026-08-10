@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { prisma } from "@/config/prisma";
-import { asyncHandler } from "@/middleware/errorHandler";
-import * as voucherService from "@/services/voucher.service";
+import { prisma } from "../config/prisma";
+import { asyncHandler } from "../middleware/errorHandler";
+import * as voucherService from "../services/voucher.service";
 
 function logAction(req: Request, action: string, entityId: string, meta?: unknown) {
     return prisma.auditLog.create({

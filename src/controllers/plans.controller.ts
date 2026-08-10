@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { prisma } from "@/config/prisma";
-import { asyncHandler } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { asyncHandler } from "../middleware/errorHandler";
 
 export const listPlans = asyncHandler(async (_req: Request, res: Response) => {
     const plans = await prisma.subscriptionPlan.findMany({

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "@/config/prisma";
-import { asyncHandler } from "@/middleware/errorHandler";
+import { asyncHandler } from "../middleware/errorHandler";
 
 export const getOverview = asyncHandler(async (_req: Request, res: Response) => {
   const startOfToday = new Date();

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { prisma } from "@/config/prisma";
-import { ApiError } from "@/middleware/errorHandler";
+import { prisma } from "../config/prisma";
+import { ApiError } from "../middleware/errorHandler";
 
 // ---------- Group definitions ----------
 // Each settings group is stored as a single row in the `Setting` table
