@@ -3,7 +3,7 @@ import * as SMTPTransport from "nodemailer/lib/smtp-transport";
 
 const smtpOptions: SMTPTransport.Options = {
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    port: parseInt(process.env.SMTP_PORT || "443", 10),
     secure: false,
 
     ...(process.env.SMTP_USER
