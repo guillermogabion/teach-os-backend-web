@@ -15,3 +15,4 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: "Invalid or expired access token" });
   }
 }
+

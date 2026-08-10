@@ -9,6 +9,7 @@ import paymentsRoutes from "./payments.routes";
 import vouchersRoutes from "./voucher.routes";
 import campaignRoutes from "./campaign.routes";
 import plansRoutes from "./plans.routes";
+import adminPlansRouter from "./admin.plans.routes";
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use("/payments", paymentsRoutes);
 router.use("/vouchers", vouchersRoutes);
 router.use("/promo-campaigns", campaignRoutes);
 router.use("/plans", plansRoutes);
+router.use("/admin/plans", adminPlansRouter);
 
 export default router;
