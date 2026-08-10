@@ -1,23 +1,19 @@
-import nodemailer from "nodemailer";
-import * as SMTPTransport from "nodemailer/lib/smtp-transport";
+import { BrevoClient } from "@getbrevo/brevo";
 
-const smtpOptions: SMTPTransport.Options = {
-    host: process.env.SMTP_HOST || "smtp.mailtrap.io",
-    port: parseInt(process.env.SMTP_PORT || "443", 10),
-    secure: false,
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
-    ...(process.env.SMTP_USER
-        ? {
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS || "",
-            },
-        }
-        : {}),
-};
+if (!BREVO_API_KEY) {
+    console.warn("⚠️ BREVO_API_KEY is not configured — emails will fail to send");
+}
 
-const transporter = nodemailer.createTransport(smtpOptions);
-const FROM = process.env.SMTP_FROM || "no-reply@TeachOs.app";
+const brevo = new BrevoClient({
+    apiKey: BREVO_API_KEY || "",
+    timeoutInSeconds: 30,
+    maxRetries: 2,
+});
+
+const FROM_EMAIL = process.env.SMTP_FROM || "no-reply@teachos.app";
+const FROM_NAME = process.env.SMTP_FROM_NAME || "TeachOS";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 // Comma-separated list of admin addresses to notify about pending payments,
@@ -45,9 +41,9 @@ const baseTemplate = (content: string, orgName = "TeachOs") => `
     .code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 20px; font-family: monospace; font-size: 22px; letter-spacing: 4px; text-align: center; color: #0d87f5; font-weight: bold; }
     table.detail-table td { padding: 6px 0; font-size: 14px; }
     table.detail-table td.label { color: #94a3b8; width: 120px; }
-    .logo { 
-        width: 64px; 
-        height: 64px; 
+    .logo {
+        width: 64px;
+        height: 64px;
         border-radius: 16px; /* Matches the rounded corners of your app icon */
         margin-bottom: 8px;
     }
@@ -56,15 +52,8 @@ const baseTemplate = (content: string, orgName = "TeachOs") => `
 <body>
   <div class="container">
     <div class="header">
-     <div class="header">
-        <img src="${CLIENT_URL}/teachOs_logo_small.png" alt="TeacherOS Logo" class="logo" />
-        <div class="header">
       <img src="${CLIENT_URL}/teachOs_logo_small.png" alt="TeacherOS Logo" class="logo" />
       <h1>${orgName}</h1>
-      <p>Teacher Productivity Platform</p>
-    </div>
-        <p>Teacher Productivity Platform</p>
-    </div>
       <p>Teacher Productivity Platform</p>
     </div>
     <div class="body">${content}</div>
@@ -84,10 +73,16 @@ interface MailOptions {
 
 export const sendMail = async ({ to, subject, html }: MailOptions) => {
     try {
-        await transporter.sendMail({ from: FROM, to, subject, html: baseTemplate(html) });
+        await brevo.transactionalEmails.sendTransacEmail({
+            sender: { name: FROM_NAME, email: FROM_EMAIL },
+            to: [{ email: to }],
+            subject,
+            htmlContent: baseTemplate(html),
+        });
         console.log(`📧 Email sent to ${to}: ${subject}`);
-    } catch (err) {
-        console.error("❌ Email send error:", (err as Error).message);
+    } catch (err: any) {
+        const detail = err?.body ?? err?.message ?? err;
+        console.error("❌ Email send error:", detail);
         // Don't throw — email failure shouldn't break the API
     }
 };
@@ -106,9 +101,9 @@ export const sendActivationKeyEmail = async (
     const html = `
         <p>${greeting}</p>
         <p>Your payment for <strong>${planName}</strong> has been confirmed. Here is your premium activation key:</p>
-       
+
         <div class="code">${activationKey}</div>
-       
+
         <p>To activate, open the TeachOs app, enter this key along with this email address, and you're set.</p>
         <p>If you have any questions, simply reply to this email.</p>
     `;
