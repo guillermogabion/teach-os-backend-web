@@ -367,3 +367,59 @@ export async function validateLicenseStatus({ licenseKey, email, deviceId }: Val
         expiresAt: license.expiresAt,
     };
 }
+
+const PRIVATE_KEY_B64 = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+
+let privateKeyObject: crypto.KeyObject | null = null;
+if (PRIVATE_KEY_B64) {
+    try {
+        const der = Buffer.from(PRIVATE_KEY_B64, "base64");
+        privateKeyObject = crypto.createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+    } catch (e) {
+        console.error("[licenseToken] Failed to load LICENSE_SIGNING_PRIVATE_KEY:", e);
+    }
+} else {
+    console.warn(
+        "[licenseToken] LICENSE_SIGNING_PRIVATE_KEY is not set -- activate/validate " +
+        "responses will NOT include a licenseToken, and the app will refuse to unlock."
+    );
+}
+
+export interface LicenseTokenPayload {
+    licenseKey: string;
+    email: string;
+    deviceId: string;
+    status: string;
+    expiresAt: string | null;
+    issuedAt: string;
+}
+
+export interface SignedLicenseToken {
+    payload: string; // base64url of the JSON payload
+    signature: string; // base64url Ed25519 signature over the raw payload bytes
+}
+
+/**
+ * Signs a license token for this exact device/key/status combination.
+ * Returns null if the signing key isn't configured -- callers should
+ * omit `licenseToken` from the response in that case, which the app
+ * treats as "not activated" (fails closed).
+ */
+export function signLicenseToken(
+    params: Omit<LicenseTokenPayload, "issuedAt">
+): SignedLicenseToken | null {
+    if (!privateKeyObject) return null;
+
+    const payload: LicenseTokenPayload = {
+        ...params,
+        issuedAt: new Date().toISOString(),
+    };
+
+    const payloadBytes = Buffer.from(JSON.stringify(payload), "utf8");
+    const signatureBytes = crypto.sign(null, payloadBytes, privateKeyObject);
+
+    return {
+        payload: payloadBytes.toString("base64url"),
+        signature: signatureBytes.toString("base64url"),
+    };
+}

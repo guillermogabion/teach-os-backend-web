@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { asyncHandler } from "../middleware/errorHandler";
 import * as licenseService from "../services/license.service";
+import { signLicenseToken } from "../services/license.service";
 
 function logAction(req: Request, action: string, entityId: string, meta?: unknown) {
     return prisma.auditLog.create({
@@ -34,6 +35,14 @@ export const activateLicenseHandler = asyncHandler(async (req: Request, res: Res
 
     await logAction(req, "LICENSE_ACTIVATED", license.id, { email, deviceId, deviceName });
 
+    const licenseToken = signLicenseToken({
+        licenseKey: license.key,
+        email: license.email!,
+        deviceId,
+        status: license.status,
+        expiresAt: license.expiresAt ? license.expiresAt.toISOString() : null,
+    });
+
     res.json({
         status: license.status,
         email: license.email,
@@ -41,6 +50,7 @@ export const activateLicenseHandler = asyncHandler(async (req: Request, res: Res
         maxDevices: license.maxDevices,
         activatedAt: license.activatedAt,
         expiresAt: license.expiresAt,
+        licenseToken, // null if LICENSE_SIGNING_PRIVATE_KEY isn't configured yet
     });
 });
 
@@ -55,10 +65,18 @@ export const validateLicenseHandler = asyncHandler(async (req: Request, res: Res
 
     const validLicenseInfo = await licenseService.validateLicenseStatus({ licenseKey, email, deviceId });
 
+    const licenseToken = signLicenseToken({
+        licenseKey,
+        email,
+        deviceId,
+        status: validLicenseInfo.status,
+        expiresAt: validLicenseInfo.expiresAt ? validLicenseInfo.expiresAt.toISOString() : null,
+    });
+
     // Optional: You can log this action, or omit it if it creates too much noise on app startup
     // await logAction(req, "LICENSE_CHECKED", licenseKey, { email, deviceId });
 
-    res.json(validLicenseInfo);
+    res.json({ ...validLicenseInfo, licenseToken });
 });
 
 // ---------- Admin: generate / list / revoke ----------
