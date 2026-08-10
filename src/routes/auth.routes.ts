@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { loginHandler, refreshHandler, logoutHandler, meHandler } from "@/controllers/auth.controller";
-import { requireAuth } from "@/middleware/auth";
+import { loginHandler, refreshHandler, logoutHandler, meHandler } from "../controllers/auth.controller";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
