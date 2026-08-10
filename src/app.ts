@@ -6,22 +6,19 @@ import rateLimit from "express-rate-limit";
 import { env } from "./config/env";
 import routes from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
+
 export function createApp() {
   const app = express();
 
   app.set("trust proxy", 1);
-
   app.use(helmet());
-
   app.use(
     cors({
       origin: env.corsOrigin,
       credentials: true,
     })
   );
-
   app.use(express.json());
-
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
@@ -45,3 +42,8 @@ export function createApp() {
 
   return app;
 }
+
+// Serverless entry point needs a default export — Express apps
+// are valid request handlers, so exporting the instance works directly.
+const app = createApp();
+export default app;
