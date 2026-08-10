@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { env } from "./config/env";
-import routes from "@/routes";
+import routes from "./routes";
 import { errorHandler } from "@/middleware/errorHandler";
 
 export function createApp() {
