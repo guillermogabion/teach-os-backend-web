@@ -95,6 +95,56 @@ export async function hasActiveLicenseForEmail(
     return !!existing;
 }
 
+// Maps a plan's billingCycle to a number of calendar months to add.
+// null means "no expiry" (e.g. a lifetime/one-time plan).
+const BILLING_CYCLE_MONTHS: Record<string, number | null> = {
+    MONTHLY: 1,
+    QUARTERLY: 3,
+    SEMI_ANNUAL: 6,
+    SEMIANNUAL: 6,
+    BIANNUAL: 6,
+    ANNUAL: 12,
+    YEARLY: 12,
+    LIFETIME: null,
+    ONE_TIME: null,
+};
+
+/**
+ * Adds `months` calendar months to `from` (e.g. Jan 31 + 1 month -> Feb 28/29,
+ * not Mar 3). Used so MONTHLY/QUARTERLY/ANNUAL expiry lines up with what a
+ * human means by "a month/quarter/year from now" instead of a fixed day count.
+ */
+function addCalendarMonths(from: Date, months: number): Date {
+    const result = new Date(from);
+    const targetMonth = result.getMonth() + months;
+    result.setMonth(targetMonth);
+    // If setMonth overflowed (e.g. Jan 31 -> Mar 3 because Feb has no 31st),
+    // roll back to the last day of the intended month instead.
+    if (result.getMonth() !== ((targetMonth % 12) + 12) % 12) {
+        result.setDate(0);
+    }
+    return result;
+}
+
+/**
+ * Resolves how long a newly created license should last based on its plan's
+ * billingCycle, e.g. MONTHLY -> +1 month, QUARTERLY -> +3 months. Unknown/
+ * unmapped billingCycle values fall back to null (no auto-expiry) rather than
+ * guessing, and get logged so they don't fail silently.
+ */
+function expiryFromBillingCycle(billingCycle: string, from: Date = new Date()): Date | null {
+    const key = billingCycle.trim().toUpperCase();
+    if (!(key in BILLING_CYCLE_MONTHS)) {
+        console.warn(
+            `[license] Unrecognized billingCycle "${billingCycle}" — no auto-expiry applied. ` +
+            `Add it to BILLING_CYCLE_MONTHS in license.service.ts if this is a real plan cycle.`
+        );
+        return null;
+    }
+    const months = BILLING_CYCLE_MONTHS[key];
+    return months === null ? null : addCalendarMonths(from, months);
+}
+
 interface CreateLicenseParams {
     planId: string;
     maxDevices?: number;
@@ -115,9 +165,20 @@ export async function createLicense({ planId, maxDevices, expiresInDays, email }
         );
     }
 
-    const expiresAt = expiresInDays
-        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
-        : null;
+    // The plan's billingCycle is authoritative whenever it maps to a real
+    // cycle (MONTHLY -> 1 month, QUARTERLY -> 3 months, etc.) — a license
+    // for a quarterly plan should expire in 3 months regardless of whatever
+    // expiresInDays the caller/form happens to send. expiresInDays is only
+    // used as a fallback for plans with no derivable cycle (LIFETIME/
+    // ONE_TIME, or an unrecognized billingCycle string) — that's the one
+    // case where a manual day count is the only way to set an expiry.
+    const cycleExpiresAt = expiryFromBillingCycle(plan.billingCycle);
+    const expiresAt =
+        cycleExpiresAt !== null
+            ? cycleExpiresAt
+            : expiresInDays
+                ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+                : null;
 
     return prisma.license.create({
         data: {
