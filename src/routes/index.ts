@@ -1,12 +1,12 @@
 import { Router } from "express";
-import authRoutes from "@/routes/auth.routes";
-import usersRoutes from "@/routes/users.routes";
-import settingsRoute from "@/routes/settings.routes";
-import dashboardRoutes from "@/routes/dashboard.routes";
-import licenseRoutes from "@/routes/license.routes";
-import paymentsRoutes from "@/routes/payments.routes";
-import vouchersRoutes from "@/routes/voucher.routes";
-import campaignRoutes from "@/routes/campaign.routes";
+import authRoutes from "routes/auth.routes";
+import usersRoutes from "routes/users.routes";
+import settingsRoute from "routes/settings.routes";
+import dashboardRoutes from "routes/dashboard.routes";
+import licenseRoutes from "routes/license.routes";
+import paymentsRoutes from "routes/payments.routes";
+import vouchersRoutes from "routes/voucher.routes";
+import campaignRoutes from "routes/campaign.routes";
 import plansRoutes from "@/routes/plans.routes";
 
 const router = Router();
