@@ -2,16 +2,16 @@ import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
-    // Always include the radix (10) when using parseInt
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    family: 4,
 
-    // Only pass the auth object if the environment variables actually exist
-    ...(process.env.SMTP_USER && {
-        auth: {
+    auth: process.env.SMTP_USER
+        ? {
             user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-    }),
+            pass: process.env.SMTP_PASS || "",
+        }
+        : undefined,
 });
 
 const FROM = process.env.SMTP_FROM || "no-reply@TeachOs.app";

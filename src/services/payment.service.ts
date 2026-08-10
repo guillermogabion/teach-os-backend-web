@@ -16,6 +16,8 @@ interface CreatePaymentParams {
     voucherCode?: string; // optional promo/discount code applied at checkout
 }
 
+type Db = Omit<typeof prisma, "$transaction" | "$connect" | "$disconnect" | "$on" | "$use" | "$extends">;
+
 // Shared by createPayment (auto-issue) and approvePayment (manual/idempotent
 // re-issue path) so the "mark paid + generate license + email the key"
 // logic only lives in one place. bonusDays is added on top of the plan's
@@ -31,8 +33,11 @@ async function issueLicenseForPayment(
 
     const subscriptionSettings = await getGroupSettings("subscription");
 
-    const baseExpiresInDays =
-        plan.billingCycle === "YEARLY" ? 365 : plan.billingCycle === "ONE_TIME" ? undefined : 30;
+    // billingCycle may not be present on the generated Prisma type, so
+    // access it dynamically to avoid a TS error while still handling
+    // the expected values at runtime.
+    const billingCycle = (plan as any).billingCycle as string | undefined;
+    const baseExpiresInDays = billingCycle === "YEARLY" ? 365 : billingCycle === "ONE_TIME" ? undefined : 30;
     // A perpetual (ONE_TIME) plan has no expiry to extend — bonus days
     // only make sense stacked on top of an actual window.
     const expiresInDays = baseExpiresInDays === undefined ? undefined : baseExpiresInDays + bonusDays;
