@@ -1,19 +1,16 @@
-import { BrevoClient } from "@getbrevo/brevo";
+import { Resend } from "resend";
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-if (!BREVO_API_KEY) {
-    console.warn("⚠️ BREVO_API_KEY is not configured — emails will fail to send");
+if (!RESEND_API_KEY) {
+    console.warn("⚠️ RESEND_API_KEY is not configured — emails will fail to send");
 }
 
-const brevo = new BrevoClient({
-    apiKey: BREVO_API_KEY || "",
-    timeoutInSeconds: 30,
-    maxRetries: 2,
-});
+const resend = new Resend(RESEND_API_KEY || "");
 
 const FROM_EMAIL = process.env.SMTP_FROM || "no-reply@teachos.app";
 const FROM_NAME = process.env.SMTP_FROM_NAME || "TeachOS";
+const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 // Comma-separated list of admin addresses to notify about pending payments,
@@ -73,16 +70,21 @@ interface MailOptions {
 
 export const sendMail = async ({ to, subject, html }: MailOptions) => {
     try {
-        await brevo.transactionalEmails.sendTransacEmail({
-            sender: { name: FROM_NAME, email: FROM_EMAIL },
-            to: [{ email: to }],
+        const { error } = await resend.emails.send({
+            from: FROM,
+            to,
             subject,
-            htmlContent: baseTemplate(html),
+            html: baseTemplate(html),
         });
+
+        if (error) {
+            console.error("❌ Email send error:", error.message, `(${error.name})`);
+            return;
+        }
+
         console.log(`📧 Email sent to ${to}: ${subject}`);
-    } catch (err: any) {
-        const detail = err?.body ?? err?.message ?? err;
-        console.error("❌ Email send error:", detail);
+    } catch (err) {
+        console.error("❌ Email send error:", (err as Error).message);
         // Don't throw — email failure shouldn't break the API
     }
 };
