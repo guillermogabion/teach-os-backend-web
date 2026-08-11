@@ -1,4 +1,3 @@
-// license.service.ts — only the changed function + its callers' messages
 
 import crypto from "crypto";
 import { prisma } from "../config/prisma";
@@ -7,6 +6,25 @@ import { ApiError } from "../middleware/errorHandler";
 // Prisma client may not have strongly-typed property for the LicenseDevice
 // model in some build setups; use an any-typed alias for device ops.
 const p = prisma as any;
+
+// ─── HELPER TO MASK LICENSE KEYS ─────────────────────────────────────────────
+export function maskLicenseKey(key: string): string {
+    if (!key) return "—";
+
+    // If the key is grouped by hyphens (e.g. TEAC-XXXX-XXXX-1234)
+    const parts = key.split("-");
+    if (parts.length > 1) {
+        return parts.map((part, index) =>
+            // Keep the prefix ('TEAC') and the last segment visible
+            (index === 0 || index === parts.length - 1) ? part : "*".repeat(part.length)
+        ).join("-");
+    }
+
+    // Fallback for solid strings: show only the last 4 characters
+    if (key.length <= 4) return "*".repeat(key.length);
+    return "*".repeat(key.length - 4) + key.slice(-4);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function generateLicenseKey(): string {
     const groups = Array.from({ length: 3 }, () =>
@@ -324,7 +342,14 @@ export async function listLicenses({ page, pageSize }: ListLicensesParams) {
         }),
         prisma.license.count(),
     ]);
-    return { items, total, page, pageSize };
+
+    // Apply the masking function to the returned items
+    const maskedItems = items.map((item) => ({
+        ...item,
+        key: maskLicenseKey(item.key)
+    }));
+
+    return { items: maskedItems, total, page, pageSize };
 }
 
 /**
